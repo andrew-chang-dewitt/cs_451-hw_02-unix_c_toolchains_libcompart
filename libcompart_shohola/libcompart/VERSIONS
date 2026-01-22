@@ -1,0 +1,8 @@
+List of libcompart versions and their main features.
+Version names are drawn from https://en.wikipedia.org/wiki/List_of_rivers_of_Pennsylvania
+Early details here are only approximate, these can be made more precise by examining the repo.
+
+Pennypack -- first prototype as separate library
+Frankford -- extension to emulate earlier work
+Cohoquinoque -- simplification of API to avoid shadowing system API
+Shohola -- API cleaning up, end of 2019
