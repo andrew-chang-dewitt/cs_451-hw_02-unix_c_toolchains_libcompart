@@ -41,16 +41,16 @@ Assignment 2: Refresher on UNIX, C, and its toolchain
   that accompany the partitioned program.
 - A set of files named "a.out", "a.err", "b.out", etc, each containing the contents specified below:
   1. The (compiler's) output from step 4.
-  1. The(compiler's) output from step 5.
+  1. The (compiler's) output from step 5.
   1. The output from running the Life program (from step 6).
-  1. Theoutput from step 7.
+  1. The output from step 7.
   1. The output from step 8.
   1. The (compiler's) output from step 9.
   1. The output from running your program (from step 10).
-  1. Theoutput from step 11. (Bonus: +10% if there are no memory leaks)
+  1. The output from step 11. (Bonus: +10% if there are no memory leaks)
   1. The output from step 12.
   1. Bonus: (+10%) Repeat step 6 for 5 times and compute the average
      and standard deviation of the total invocation time.
 
-  Where files ending in .out should contain the standard output, and
-  files ending in .err should contain the error output.
+  Where files ending in `.out` should contain the standard output, and
+  files ending in `.err` should contain the error output.
