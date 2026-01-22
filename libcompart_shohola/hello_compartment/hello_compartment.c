@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
   compart_start("hello compartment");
   // since "hello compartment" is the first one started, it becomes "main"
 
+  // get a handle on stdout
 #ifndef LC_ALLOW_EXCHANGE_FD
   int fd = STDOUT_FILENO;
 #else
@@ -45,16 +46,25 @@ int main(int argc, char **argv) {
 #endif // ndef LC_ALLOW_EXCHANGE_FD
 
   int original_value = -5;
+  // uses `dprintf` to specify target output stream
   dprintf(fd, "Old value: %d\n", original_value);
 
+  // BEGIN inter-compartment function call
 #ifndef LC_ALLOW_EXCHANGE_FD
+  // setup/serialize args
   struct extension_data arg = ext_add_int_to_arg(original_value);
-  int new_value = ext_add_int_from_arg(compart_call_fn(add_ten_ext, arg));
+  // make inter-compartment function call & get output
+  int new_value = ext_add_int_from_arg( // deserialize output from below
+      compart_call_fn(add_ten_ext, arg));
 #else
+
+  // repeat to call again
   struct extension_data arg = ext_add_int_to_arg(original_value, fd);
   int new_value = ext_add_int_from_arg(compart_call_fn(add_ten_ext, arg), &fd);
 #endif // ndef LC_ALLOW_EXCHANGE_FD
+  // END inter-compartment function call
 
+  // BEGIN inter-compartment function call
 #ifndef LC_ALLOW_EXCHANGE_FD
   arg = ext_add_int_to_arg(new_value);
   new_value = ext_add_int_from_arg(compart_call_fn(add_zero_ext, arg));
@@ -62,6 +72,7 @@ int main(int argc, char **argv) {
   arg = ext_add_int_to_arg(new_value, fd);
   new_value = ext_add_int_from_arg(compart_call_fn(add_zero_ext, arg), &fd);
 #endif // ndef LC_ALLOW_EXCHANGE_FD
+  // END inter-compartment function call
 
   dprintf(fd, "After adding 10+0 to old value\n");
   dprintf(fd, "New value: %d\n", new_value);
