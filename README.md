@@ -37,7 +37,7 @@ Assignment 2: Refresher on UNIX, C, and its toolchain
 ## What to submit: A `.tgzfile` containing a set of text files:
 
 - A file called `partitioned_life.c` containing the code of your
-  partitioned Life program fromstep 8, and any other `.c` and `.h` files
+  partitioned Life program from step 8, and any other `.c` and `.h` files
   that accompany the partitioned program.
 - A set of files named "a.out", "a.err", "b.out", etc, each containing the contents specified below:
   1. The (compiler's) output from step 4.
