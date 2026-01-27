@@ -32,7 +32,11 @@ int main(int argc, char **argv) {
 
   compart_check();
   compart_init(NO_COMPARTS, comparts, default_config);
+  // register pointer to function extension add ten to run on other
+  // compartment, saving returned value (a function pointer) to `add_ten_ext`
+  // (provided by/declared in `./hello_interface.h`)
   add_ten_ext = compart_register_fn("other compartment", &ext_add_ten);
+  // same, but for extension add uid & third compartment
   add_zero_ext = compart_register_fn("third compartment", &ext_add_uid);
   compart_start("hello compartment");
   // since "hello compartment" is the first one started, it becomes "main"
