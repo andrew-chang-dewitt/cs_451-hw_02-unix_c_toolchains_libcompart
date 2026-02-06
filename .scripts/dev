@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+#
+# ENSURE STARTING FROM PRJ ROOT
+#
+PRJ_ROOT=`dirname $(realpath "$0")`/..
+cd $PRJ_ROOT
+
+cd life
+
+# build
+make
+
+# run
+./life
+
+echo ""
+echo ""
+
+cd $PRJ_ROOT
