@@ -1,20 +1,82 @@
 #!/usr/bin/env bash
 
-#
-# ENSURE STARTING FROM PRJ ROOT
-#
-PRJ_ROOT=`dirname $(realpath "$0")`/..
-cd $PRJ_ROOT
+prj_root=`dirname $(realpath "$0")`/..
+tgt_dir=$prj_root/target
+bin_dir=$tgt_dir/bin
 
-cd life
+lib_compart_dir=$prj_root/libcompart_shohola
+hello_dir=$lib_compart_dir/hello_compartment
+hello_exe=$bin_dir/hello_compartment
+
+life_dir=$prj_root/life
+life_exe=$bin_dir/life
+prof_life_exe=$bin_dir/gprof_life
+
+report_dir=$prj_root/report
+
+# cmd="./life -c 100"
+# cmd="./life -s 3 -c 100 -i 011001010"
+args="-s 20 -c 10 -i 011001010110101111011001010110101111010111101010101111100110111"
+
+# clear & reset report directory
+cd $prj_root
+rm -rf $report_dir
+mkdir -p $report_dir
+
+# build hello_compartment & run it
+echo "Building hello_compartment..."
+echo ""
+cd $lib_compart_dir/libcompart
+make clean
+make
+cd $hello_dir
+make > $report_dir/a.out 2> $report_dir/a.err
+echo ""
+echo "done."
+echo ""
+echo ""
+echo "Running hello_compartment..."
+$hello_exe
+echo ""
+echo "done."
+echo ""
+echo ""
+
+# return to root
+cd $prj_root
 
 # build
-make
+echo "Building life binaries..."
+echo ""
+make clean
+make > $report_dir/b.out 2> $report_dir/b.err
+make prof
+echo ""
+echo "done."
+echo ""
 
-# run
-./life
-
+# run tests
+echo "Measuring life runtime..."
+echo ""
+touch $report_dir/c.out
+{ time $life_exe $args; } > $report_dir/c.out 2> $report_dir/c.err
+echo ""
+echo "done."
 echo ""
 echo ""
-
-cd $PRJ_ROOT
+echo "Checking life for memory leaks..."
+echo ""
+valgrind $life_exe $args > $report_dir/d.out 2> $report_dir/d.err
+echo ""
+echo "done."
+echo ""
+echo ""
+echo "Profiling life..."
+echo ""
+cd $bin_dir
+$prof_life_exe
+gprof $prof_life_exe $bin_dir/gmon.out > $report_dir/e.out 2> $report_dir/e.err
+echo ""
+echo "done."
+echo ""
+echo ""

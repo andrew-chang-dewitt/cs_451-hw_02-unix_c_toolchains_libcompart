@@ -1,3 +1,8 @@
 *.swp
 *.swo
-./life/life
+life/life
+life/gmon.out
+life/prof-life
+*.o
+target/
+report/
