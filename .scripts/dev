@@ -16,26 +16,30 @@ report_dir=$prj_root/report
 
 # cmd="./life -c 100"
 # cmd="./life -s 3 -c 100 -i 011001010"
-args="-s 20 -c 10 -i 011001010110101111011001010110101111010111101010101111100110111"
+args="-s 20 -c 100 -i 011001010110101111011001010110101111010111101010101111100110111"
 
 # clear & reset report directory
 cd $prj_root
 rm -rf $report_dir
-mkdir -p $report_dir
+sudo -u andrew mkdir -p $report_dir
 
 # build hello_compartment & run it
-echo "Building hello_compartment..."
+echo "Building libcompart..."
 echo ""
 cd $lib_compart_dir/libcompart
-make clean
-make
+sudo -u andrew make clean
+sudo -u andrew make
+echo "...and hello_compartment..."
 cd $hello_dir
-make > $report_dir/a.out 2> $report_dir/a.err
+sudo -u andrew make clean
+sudo -u andrew make > $report_dir/a.out 2> $report_dir/a.err
 echo ""
 echo "done."
 echo ""
 echo ""
 echo "Running hello_compartment..."
+# running $hello_exe requires elevated privileges; if this script is not run as
+# sudo, it will fail
 $hello_exe
 echo ""
 echo "done."
@@ -48,9 +52,9 @@ cd $prj_root
 # build
 echo "Building life binaries..."
 echo ""
-make clean
-make > $report_dir/b.out 2> $report_dir/b.err
-make prof
+sudo -u andrew make clean
+sudo -u andrew make > $report_dir/b.out 2> $report_dir/b.err
+sudo -u andrew make prof
 echo ""
 echo "done."
 echo ""
@@ -59,14 +63,14 @@ echo ""
 echo "Measuring life runtime..."
 echo ""
 touch $report_dir/c.out
-{ time $life_exe $args; } > $report_dir/c.out 2> $report_dir/c.err
+{ sudo -u andrew time $life_exe $args; } > $report_dir/c.out 2> $report_dir/c.err
 echo ""
 echo "done."
 echo ""
 echo ""
 echo "Checking life for memory leaks..."
 echo ""
-valgrind $life_exe $args > $report_dir/d.out 2> $report_dir/d.err
+sudo -u andrew valgrind $life_exe $args > $report_dir/d.out 2> $report_dir/d.err
 echo ""
 echo "done."
 echo ""
@@ -74,8 +78,8 @@ echo ""
 echo "Profiling life..."
 echo ""
 cd $bin_dir
-$prof_life_exe
-gprof $prof_life_exe $bin_dir/gmon.out > $report_dir/e.out 2> $report_dir/e.err
+sudo -u andrew $prof_life_exe $args
+sudo -u andrew gprof $prof_life_exe $bin_dir/gmon.out > $report_dir/e.out 2> $report_dir/e.err
 echo ""
 echo "done."
 echo ""
