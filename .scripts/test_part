@@ -21,7 +21,7 @@ args=" -s 3 -c 5 -i 011001010"
 # build
 echo "Building life binaries..."
 echo ""
-sudo -u andrew make clean && sudo -u andrew make part && sudo -u andrew $part_exe $args
+sudo -u andrew make clean && sudo -u andrew make part && $part_exe $args
 echo ""
 echo "done."
 echo ""

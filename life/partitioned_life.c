@@ -38,36 +38,95 @@ blinker:
 #include <string.h>
 #include <unistd.h>
 
-#include <combin.h>
-#include <compart_base.h>
+#include "part_interface.h"
+// imports compart, combin, extension_id, extension_data, NO_COMPARTS
 
-#ifndef LIBCOMPART_VERSION_SHOHOLA
-#error Using incompatible version of libcompart
-#endif // LIBCOMPART_VERSION_SHOHOLA
+void print_world(const unsigned long size, const unsigned long step_number);
+void init_step(const unsigned long size, const char *init_world);
+void step(const unsigned long size, const unsigned long step_number);
+unsigned char living_neighbours(const unsigned long size,
+                                const unsigned long step_number,
+                                const unsigned long x, const unsigned long y);
+char neighbour_state(const unsigned long size, const unsigned long step_number,
+                     const unsigned long x, const unsigned long y,
+                     const unsigned char neighbour_offset);
+void set_value(const unsigned long size, const unsigned long step_number,
+               const unsigned long x, const unsigned long y, const char value);
+char get_value(const unsigned long size, const unsigned long step_number,
+               const unsigned long x, const unsigned long y);
 
-#define NO_COMPARTS 2
-extern struct compart comparts[NO_COMPARTS] = {{.name = "main compartment",
-                                                .uid = 65534,
-                                                .gid = 65534,
-                                                .path = "/tmp",
-                                                .comms = NULL},
-                                               {.name = "step compartment",
-                                                .uid = 65534,
-                                                .gid = 65534,
-                                                .path = "/tmp",
-                                                .comms = NULL}};
-// not important to deeply understand for our purposes for now, but this part
-// defines how to create the separate binaries needed to run this program on
-// different nodes
-// FIXME: no idea what this does or if it's right at all...
-struct combin combins[NO_COMPARTS] = {
-    {.path = "/home/andrew/chopchop/compartmenting/partitioned_life/step"}};
+int main(int argc, char *const *argv) {
+  compart_check();
+  compart_init(NO_COMPARTS, comparts, default_config);
+  // register pointer to function extension calculate step on step compartment
+  step_ext = compart_register_fn("step compartment", &ext_step);
+  compart_start("main compartment");
 
-// init public extension identifer pointers as NULL
-// they must be redefined by user of this code
-struct extension_id *step_ext = NULL;
+  // get a handle on stdout
+#ifndef LC_ALLOW_EXCHANGE_FD
+  int fd = STDOUT_FILENO;
+#else
+  int fd = open("stdout", O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
+  printf("(%d) open fd=%d\n", getpid(), fd);
+#endif // ndef LC_ALLOW_EXCHANGE_FD
 
-char *world_history = NULL;
+  unsigned long size = 3;
+  char *init_world = NULL;
+  unsigned long cycles = 3;
+
+  int option;
+  while ((option = getopt(argc, argv, "s:i:c:")) != -1) {
+    switch (option) {
+    case 'i':
+      init_world = malloc(strlen(optarg) + 1);
+      strcpy(init_world, optarg);
+      break;
+    case 's':
+      size = strtoul(optarg, NULL, 10);
+      break;
+    case 'c':
+      cycles = strtoul(optarg, NULL, 10);
+      break;
+    default:
+      // FIXME: print error message.
+      exit(EXIT_FAILURE);
+      break;
+    }
+  }
+
+  assert(size > 1);
+  assert(cycles > 1);
+
+  world_history = malloc(size * size * cycles);
+
+  for (unsigned long i = 0; i < size * size * cycles; i++) {
+    world_history[i] = 0;
+  }
+
+  init_step(size, init_world);
+  print_world(size, 0);
+  printf("\n");
+
+  unsigned long i = 1;
+  dprintf(fd, "before for loop from %li to %li\n", i, cycles);
+  for (; i < cycles; i++) {
+    dprintf(fd, "starting step %li\n", i);
+    // step(size, i);
+    ext_history_from_arg( // update global state from step compartment
+        compart_call_fn(step_ext, ext_step_to_arg(i, size, world_history)),
+        sizeof(2 * i), world_history);
+    print_world(size, i);
+    printf("\n");
+  }
+  dprintf(fd, "after for loop, completed %li iterations before reaching %li\n",
+          i - 1, cycles);
+
+  free(world_history);
+  free(init_world);
+
+  close(fd);
+  return EXIT_SUCCESS;
+}
 
 char get_value(const unsigned long size, const unsigned long step_number,
                const unsigned long x, const unsigned long y) {
@@ -169,7 +228,7 @@ char neighbour_state(const unsigned long size, const unsigned long step_number,
 unsigned char living_neighbours(const unsigned long size,
                                 const unsigned long step_number,
                                 const unsigned long x, const unsigned long y) {
-  // FIXME assert x >= 0
+
   // FIXME assert y >= 0
   // FIXME assert x < size
   // FIXME assert y < size
@@ -206,106 +265,6 @@ void step(const unsigned long size, const unsigned long step_number) {
       set_value(size, step_number, x, y, state);
     }
   }
-}
-
-// pack (serialize to bytes) a given step number (integer)
-// & world history (size int & string of states)
-#ifndef LC_ALLOW_EXCHANGE_FD
-struct extension_data ext_step_to_arg(unsigned long step_num,
-                                      unsigned long size, char *history)
-#else
-struct extension_data ext_step_to_arg(unsigned long step_num,
-                                      unsigned long size, char *history, int fd)
-#endif // ndef LC_ALLOW_EXCHANGE_FD
-{
-  // create empty result value
-  struct extension_data result;
-  // declare size of buffer to be memory size of int + int + step number * size
-  // * size
-  int size_step_num = sizeof(step_num);
-  int size_size = sizeof(size);
-  int size_history = step_num * size * size * sizeof(*history);
-  result.bufc = size_step_num + size_size + size_history;
-  // copy 4-byte repr of step number to buffer on result
-  memcpy(result.buf, &step_num, size_step_num);
-  // append 4-byte repr of size to that
-  int offset = size_step_num;
-  memcpy(result.buf[offset], &size, size_size);
-  // then append bytestr of states
-  offset += size_size;
-  memcpy(result.buf[offset], history, size_history);
-#ifdef LC_ALLOW_EXCHANGE_FD
-  result.fdc = 1;
-  printf("(%d) ext_step_to_arg fd=%d\n", getpid(), fd);
-  result.fd[0] = fd;
-#endif // LC_ALLOW_EXCHANGE_FD
-  // return result object
-  return result;
-}
-
-// unpack a step number (integer), size (integer), & world history (string of
-// states) from a given argument & store each in given pointers
-#ifndef LC_ALLOW_EXCHANGE_FD
-void ext_step_from_arg(struct extension_data data, unsigned long *step_num_ptr,
-                       unsigned long *size_ptr, char *history_ptr)
-#else
-void ext_step_from_arg(struct extension_data data, unsigned long *step_num_ptr,
-                       unsigned long *size_ptr, char *history_ptr, int *fd)
-#endif // ndef LC_ALLOW_EXCHANGE_FD
-{
-  int size_step_num = sizeof(*step_num_ptr);
-  int size_size = sizeof(*size_ptr);
-  // use memcpy to read new step num from front of buffer
-  memcpy(step_num_ptr, data.buf, size_step_num);
-  // then get size
-  int offset = size_step_num;
-  memcpy(size_ptr, data.buf[offset], size_size);
-  // and history states
-  int size_history = data.bufc - size_step_num - size_size;
-  offset += size_size;
-  memcpy(history_ptr, data.buf[offset], size_history);
-  // read history states from buffer
-#ifdef LC_ALLOW_EXCHANGE_FD
-  // FIXME assert result.fdc == 1;
-  *fd = data.fd[0];
-#endif // LC_ALLOW_EXCHANGE_FD
-}
-
-// execute a step on the given history of states
-// shows pattern we'll see across other ext_* functions:
-// 1. declare a file descriptor for logging
-// 2. deserialize argument data
-// 3. perform computation w/ output of (2)
-// 4. serialize value to return
-// 5. return output of (4)
-struct extension_data ext_step(struct extension_data data) {
-  // 1. declare a file descriptor for logging
-  int fd = -1;
-#ifndef LC_ALLOW_EXCHANGE_FD
-  fd = STDOUT_FILENO;
-  // unpack the integer given in `data`
-  // 2. deserialize argument data
-  unsigned long step_num = 0;
-  unsigned long size = 0;
-  ext_step_from_arg(data, &step_num, &size, world_history);
-#else
-  ext_step_from_arg(data, &step_num, &size, world_history, &fd);
-#endif // ndef LC_ALLOW_EXCHANGE_FD
-  // log debugging info
-  dprintf(fd, "ext_step() on %s. uid=%d\n", compart_name(), getuid());
-
-  // add ten to unpacked value
-  // 3. perform computation w/ output of (2)
-  step(size, step_num);
-#ifndef LC_ALLOW_EXCHANGE_FD
-  // return value, now modified, by repacking (i.e. serializing) to
-  // `extension_data` type
-  // 4. serialize value to return
-  // 5. return output of (4)
-  return ext_step_to_arg(step_num, size, world_history);
-#else
-  return ext_step_to_arg(step_num, size, world_history, fd);
-#endif // ndef LC_ALLOW_EXCHANGE_FD
 }
 
 void init_step(const unsigned long size, const char *init_world) {
@@ -355,70 +314,4 @@ void print_world(const unsigned long size, const unsigned long step_number) {
       printf("%d%s", v, terminator);
     }
   }
-}
-
-int main(int argc, char *const *argv) {
-  compart_check();
-  compart_init(NO_COMPARTS, comparts, default_config);
-  // register pointer to function extension calculate step on step compartment
-  step_ext = compart_register_fn("step compartment", &ext_step);
-  compart_start("main compartment");
-
-  // get a handle on stdout
-#ifndef LC_ALLOW_EXCHANGE_FD
-  int fd = STDOUT_FILENO;
-#else
-  int fd = open("stdout", O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
-  printf("(%d) open fd=%d\n", getpid(), fd);
-#endif // ndef LC_ALLOW_EXCHANGE_FD
-
-  unsigned long size = 3;
-  char *init_world = NULL;
-  unsigned long cycles = 3;
-
-  int option;
-  while ((option = getopt(argc, argv, "s:i:c:")) != -1) {
-    switch (option) {
-    case 'i':
-      init_world = malloc(strlen(optarg) + 1);
-      strcpy(init_world, optarg);
-      break;
-    case 's':
-      size = strtoul(optarg, NULL, 10);
-      break;
-    case 'c':
-      cycles = strtoul(optarg, NULL, 10);
-      break;
-    default:
-      // FIXME: print error message.
-      exit(EXIT_FAILURE);
-      break;
-    }
-  }
-
-  assert(size > 1);
-  assert(cycles > 1);
-
-  world_history = malloc(size * size * cycles);
-
-  for (unsigned long i = 0; i < size * size * cycles; i++) {
-    world_history[i] = 0;
-  }
-
-  init_step(size, init_world);
-  print_world(size, 0);
-  printf("\n");
-
-  for (unsigned long i = 1; i < cycles; i++) {
-    // step(size, i);
-    compart_call_fn(step_ext, ext_step_to_arg(i, size, world_history));
-    print_world(size, i);
-    printf("\n");
-  }
-
-  free(world_history);
-  free(init_world);
-
-  close(fd);
-  return EXIT_SUCCESS;
 }
